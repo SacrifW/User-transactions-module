@@ -16,12 +16,12 @@ type Cache struct {
 type User struct {
 	UserId int
 	Balance float64 `json:"balance"`
-	DepositCount int
-	DepositSum float64
-	BetCount int
-	BetSum float64
-	WinCount int
-	WinSum float64
+	DepositCount int `json:"deposit_count"`
+	DepositSum float64 `json:"deposit_sum"`
+	BetCount int `json:"bet_count"`
+	BetSum float64 `json:"bet_sum"`
+	WinCount int `json:"win_count"`
+	WinSum float64 `json:"win_sum"`
 }
 
 type Deposit struct{
