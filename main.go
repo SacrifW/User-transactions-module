@@ -1,16 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"sync"
+	"time"
 )
-//Написать бэкенд сервис, по обработке транзакций игрока.
-//Каждый запрос имеет token, без которого запрос не действительный.
-//Пользователи должны храниться в кэше с помощью map[uint64]*User//Сколько храниться? Поставить по умолчанию хранение КЭШа час???
-//Пользователи, которые подверглись изменению, должны сохраняться в базу с периодичностью в 10 секунд.
-//Статистика(depositCount, depositSum, ....) должны считаться отдельно(не в структуре пользователя) и в реалтайме, и тоже держаться в кэше.
-//Метод GetUser не должен взаимодействовать с базой, а только с кэшом.
 
 type Cache struct {
 	mux sync.Mutex
@@ -18,120 +14,184 @@ type Cache struct {
 }
 
 type User struct {
-	UserId int `json:"user_id"`
+	UserId int
 	Balance float64 `json:"balance"`
-	//Token string `json:"token"`//???
-	Account Account `json:"cash"`
-
+	DepositCount int
+	DepositSum float64
+	BetCount int
+	BetSum float64
+	WinCount int
+	WinSum float64
 }
 
-type Account struct { //перепроверить поля структуры!!!!
-	DepositId int     `json:"deposit_id"`
-	Deposit   Deposit `json:"deposit"`
-	Bet       Bet     `json:"bet"`
-	Win       Win `json:"win"`
-}
-type Deposit struct {
-
-	DepositCount int `json:"deposit_count"`
-	DepositSum int `json:"deposit_sum"`
+type Deposit struct{
+	ForUser uint64 `json:"for_user"`
+	DepositId int `json:"deposit_id"`
+	Amount float64 `json:"deposit_amount"`//сумма попоплнения
+	Time time.Time `json:"deposit_time"`//время пополнения
 }
 
-type Bet struct {
-	BetCount int `json:"bet_count"`
-	BetSum int `json:"bet_sum"`
+type Transaction struct {
+	TransactionOfUser uint64 `json:"transaction_of_user"`
+	TransactionId int `json:"transaction_id"`
+	Type bool `json:"type"`
+	Amount float64 `json:"amount_transaction"`
+	Time time.Time `json:"time_transaction"`
 }
 
-type Win struct {
-	WinCount int `json:"win_count"`
-	WinSum int `json:"win_sum"`
-}
-
-
-func DepSum(deposit, entrance int) interface{}{
-	depositSum := Deposit{
-		DepositCount: deposit,
-		DepositSum:   deposit+entrance,
-	}
-
-return depositSum
-}
-func BetSum(bet, entrance int) interface{} {
-	betSum := Bet{
-		BetCount: bet,
-		BetSum:   bet+entrance,
-	}
-
-	return betSum
-}
-func WinSum(win, entrance int) interface{} {
-	winSum := Win{
-		WinCount: win,
-		WinSum:   win+entrance,
-	}
-
-	return winSum
-}
+var token = "testtask"
 
 func New () *Cache{//инициализация нового контейнера для хранения данных юзеров
 	Users := make(map[uint64]*User)
-
 	cache := Cache{
 		Users:             Users,
 	}
 
-return &cache//возвращаем кэш
+	return &cache//возвращаем кэш
 }
+var Users = make(map[uint64]*User)
 
-func (c *Cache) AddUser(key uint64, UserId int, Balance float64, Token string){//Set добавляет новый элемент в кэш или заменяет существующий
 
-	c.mux.Lock()
-	defer c.mux.Unlock()
+func AddUser (balance float64, token string) (Users map[uint64]*User, err error){
+	//time.Sleep(15 * time.Second)//допилить обновление юзера? как реализовать? или дать таймер функции Баланса?
+var Id uint64
+var userId int
+userId = int(Id)
 
-	c.Users[key] = &User{
-		UserId:     UserId,
-	//	Token:      Token,
-		Balance: Balance,
-	}
-}
-
-func (c *Cache) GetUser(key uint64) (interface{}, bool) {
-
-	c.mux.Lock()
-	defer c.mux.Unlock()
-
-	user, found := c.Users[key]
-	// ключ не найден
-	if !found {
-		return nil, false
+	if token == "" {
+		fmt.Println("Нет токена")
 	}
 
-	return user, true
+	user := User{
+		Balance: balance,
+	}
+
+	userId = 0
+	if userId == len(Users){
+		userId += 1
+		Id = uint64(userId)
+	}
+
+	Users[Id] = &user
+
+return Users, err
 }
 
+func AddDeposit (amount, balance float64) (Balance float64, err error){
+	if token == "" {
+		fmt.Println("Нет токена")
+	}
 
+	var depositId int
+	var userId uint64
+
+
+	user := User{
+		Balance: balance,
+	}
+
+	deposit := Deposit{
+		ForUser: userId,
+		DepositId: depositId,
+		Amount:    amount,
+		Time:      time.Now(),
+	}
+
+	balanceDepositSum(deposit.Amount, user.Balance)
+
+return user.Balance, err
+}
+
+func balanceDepositSum (amount float64, balance float64) float64{
+	balance += amount
+	return balance
+}
+
+func AddTransaction (TransactionOfUser uint64, amount float64, balance float64, token string,userId int, transactionId int) (Balance float64, err error){
+
+	if token == "" {
+		fmt.Println("Нет токена")
+	}
+
+	user := User{
+		Balance: balance,
+	}
+
+	var	transType bool
+	switch transType {
+	case true:
+		balanceWinSum(amount, user.Balance)
+	case false:
+		balanceBet(amount, user.Balance)
+	}
+
+	transaction := Transaction{
+		TransactionOfUser: TransactionOfUser,
+		TransactionId:     transactionId,
+		Type:              transType,
+		Amount:            amount,
+		Time:              time.Now(),
+	}
+
+	Transactions := make(map[int]Transaction)
+
+	key := 0
+	if key == len(Transactions){
+		key += 1
+	}
+	Transactions[key] = transaction
+
+	return user.Balance, err
+}
+func balanceWinSum (amount float64, balance float64) float64 {
+	balance += amount
+	return balance
+}
+func balanceBet (amount float64, balance float64) float64{
+	balance -= amount
+	return balance
+}
+
+func GetUser(userId uint64, token string, Users map[uint64]User) (user User, err error) {
+	time.Sleep(15*time.Second)
+
+	if token == "" {
+		fmt.Println("Нет токена")
+	}
+
+	for userId, _ = range Users{
+		user := Users[userId]
+		return user, err
+	}
+
+	return user, err
+}
 func main(){
 	router := gin.Default()
-
+	
 	New()//инициализировали кеш
 
 	router.POST("/user/create", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message":"user created"})
+		c.JSON(http.StatusOK, AddUser)
 	})
 
-	router.GET("user/get", func(c *gin.Context) {//в инструкции тут ПОСТ, я не понимаю, почему тут пост, а не гет.
-		var user User
-		c.JSON(http.StatusOK, user)
+	router.GET("user/get", func(c *gin.Context) {
+		c.JSON(http.StatusOK, GetUser)
+	})//ДОДЕЛАТЬ
+
+	router.POST("/user/deposit", func(c *gin.Context) {
+		c.JSON(http.StatusOK, AddDeposit)
 	})
 
-	router.POST("/user/deposit", )
-//	router.POST("/transaction", )
+	router.POST("/transaction", func(c *gin.Context) {
+		c.JSON(http.StatusOK, AddTransaction)
+	})
 
 
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{"message": "Not found"})
 	})
 
+
 	router.Run(":8080")
 }
-
